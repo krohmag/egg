@@ -1,0 +1,705 @@
+syntax = "proto3";
+
+option go_package = ".;api";
+
+message AuthenticatedMessage {
+  bytes message = 1;
+  string code = 2;
+}
+
+// https://www.auxbrain.com/ei/first_contact
+message FirstContactRequestPayload {
+  BasicRequestInfo rinfo = 8;
+  string ei_user_id = 4;
+  string user_id = 1;  // old style user ID, now game_services_id;
+  // using this seens to cause API response to return a
+  // pre-artifact backup; don't set post-artifact.
+  string game_services_id = 7;  // old style user ID, e.g. G:1234567890
+  string device_id = 5;         // A UUID
+  string username = 6;
+  uint32 client_version = 2;
+  Platform platform = 3;
+}
+
+message BasicRequestInfo {
+  string ei_user_id = 1;
+  uint32 client_version = 2;
+  string version = 3;
+  string build = 4;
+  string platform = 5;
+}
+
+enum Platform {
+  INVALID_PLATFORM = 0;  // proto3 requires first enum value to be 0.
+  IOS = 1;
+  DROID = 2;
+}
+
+// Partially reverse engineered.
+message FirstContact {
+  message Payload {
+    string user_id = 1;
+    string ei_user_id = 18;
+    string game_services_id = 16;
+    string device_id = 17;
+    string user_name = 2;
+    double approx_timestamp = 3;
+    uint32 version = 21;
+    bool force_offer_backup = 20;
+    bool force_backup = 22;
+
+    message Settings {
+      int32 sfx = 1;
+      int32 music = 2;
+      int32 notifications = 6;
+      int32 low_performance = 10;
+      int32 advertising = 14;
+      int32 developer_analytics_1 = 22;  // Both toggle together
+      int32 developer_analytics_2 = 23;
+      double backup_timestamp = 24;  // epoch timestamp
+    }
+    Settings settings = 4;
+
+    message Stats {
+      int32 drone_takedowns = 6;
+      repeated double farm_eggs_laid = 8;  // One entry for each egg type.
+      int32 prestiges = 9;
+      int32 elite_drone_takedowns = 10;
+      int32 piggy_level = 11;
+      int32 boosts_used = 13;
+    }
+    Stats stats = 6;
+
+    message Progress {
+      uint64 lifetime_golden_eggs = 2;
+      uint64 lifetime_golden_eggs_spent = 3;
+      double prestige_earnings = 5;
+      double lifetime_earnings = 6;
+      uint64 piggy_bank = 7;
+      int32 permit_level = 8;  // 0 - standard permit; 1 - pro permit
+      repeated EpicResearch epic_researches = 9;
+      repeated int64 max_farm_populations_reached = 18;  // One entry for
+      // each egg type.
+      repeated TrophyType farm_trophy_level = 19;        // One entry for
+      // each egg type.
+      int32 prophecy_eggs = 23;
+      int32 num_daily_gifts_collected = 28;
+      message Boost {
+        string id = 1;
+        int32 count = 2;
+      }
+      repeated Boost boosts = 30;
+      double soul_eggs = 34;
+    }
+    Progress progress = 7;
+
+    repeated Farm farms = 12;
+
+    message Contracts {
+      repeated Contract active_contracts = 1;
+      repeated Contract past_contracts = 2;
+      repeated string contract_ids = 3;
+      repeated CoopStatus active_coop_statuses = 4;
+    }
+    Contracts contracts = 13;
+
+    // WARNING: Defaults not applied due to proto3 limitations!
+    message Artifacts {
+      bool infusing = 1;
+      ArtifactInventoryItem item_being_infused = 2;
+      ArtifactSpec spec_being_infused = 13;
+      EggType egg_type_infusing = 3;
+      double infusing_eggs_required = 4;
+      double eggs_infused = 5;
+      double flow_percentage_artifacts = 6;  // [default = 0.5];
+      bool fueling_enabled = 7;              // [default = true];
+      bool infusing_enabled = 8;             // [default = true];
+      MissionInfo.Spaceship last_fueled_ship = 9;
+      double inventory_score = 10;
+      bool enabled = 11;
+      bool intro_shown = 12;
+    }
+    Artifacts artifacts = 14;
+
+    ArtifactsDB artifacts_db = 15;
+  }
+  Payload data = 1;
+}
+
+message Farm {
+  EggType egg_type = 1;
+  double prestige_earnings = 2;
+  double _3 = 3;          // on the same order of prestige_earnings but smaller,
+  // not sure what it is; gift earnings maybe?
+  double last_saved = 5;  // epoch timestamp
+  int64 chicken_count = 6;
+  double eggs_laid = 9;
+  double eggs_paid_for = 10;  // the only difference with eggs_laid seems to be
+  // that eggs_laid is not rounded, and this is
+  // rounded down.
+  int32 silos_owned = 11;
+  repeated int32 habitat_types = 12;
+  repeated int64 habitat_populations = 13;
+  repeated VehicleType vehicle_types = 17;
+  repeated int32 train_lengths = 21;
+  repeated Research researches = 18;
+  string contract_id = 20;  // empty for home farm
+
+  // 22 is a list of active boosts
+}
+
+enum EggType {
+  INVALID_EGG = 0;  // proto3 requires first enum value to be 0.
+
+  EDIBLE = 1;
+  SUPERFOOD = 2;
+  MEDICAL = 3;
+  ROCKET_FUEL = 4;
+  SUPER_MATERIAL = 5;
+  FUSION = 6;
+  QUANTUM = 7;
+  IMMORTALITY = 8;
+  TACHYON = 9;
+  GRAVITON = 10;
+  DILITHIUM = 11;
+  PRODIGY = 12;
+  TERRAFORM = 13;
+  ANTIMATTER = 14;
+  DARK_MATTER = 15;
+  AI = 16;
+  NEBULA = 17;
+  UNIVERSE = 18;
+  ENLIGHTENMENT = 19;
+
+  // Contract-only eggs.
+  CHOCOLATE = 100;
+  EASTER = 101;
+  WATERBALLOON = 102;
+  FIREWORK = 103;
+  PUMPKIN = 104;
+
+  // Placeholder for undiscovered eggs.
+  UNKNOWN = 1000;
+}
+
+enum VehicleType {
+  TRIKE = 0;
+  TRANSIT_VAN = 1;
+  PICKUP = 2;
+  TEN_FOOT = 3;
+  TWENTY_FOUR_FOOT = 4;
+  SEMI = 5;
+  DOUBLE_SEMI = 6;
+  FUTURE_SEMI = 7;
+  MEGA_SEMI = 8;
+  HOVER_SEMI = 9;
+  QUANTUM_TRANSPORTER = 10;
+  HYPERLOOP_TRAIN = 11;
+}
+
+enum TrophyType {
+  NO_TROPHY = 0;
+  BRONZE = 1;
+  SILVER = 2;
+  GOLD = 3;
+  PLATINUM = 4;
+  DIAMOND = 5;
+}
+
+message Research {
+  string id = 1;
+  int32 level = 2;
+}
+
+message EpicResearch {
+  string id = 1;
+  int32 level = 2;
+}
+
+message Contract {
+  ContractProperties props = 1;
+  string code = 2;
+  double started = 3;              // epoch timestamp
+  int32 _4 = 4;                    // unknown; example: 1
+  double production_deadline = 5;  // epoch timestamp
+  double completed_goal = 6;
+  int32 _7 = 7;                    // unknown; example: 1
+  double collection_deadline = 9;  // epoch timestamp
+  // 2 days after production deadline
+  int32 _10 = 10;                  // unknown; example: 10
+  double player_contribution = 11;
+  string player_id = 13;
+  int32 num_goals_completed = 14;
+  int32 league = 15;  // 0 for elite, 1 for standard
+}
+
+// ContractProperties contains player/session-agnostic properties of a contract.
+message ContractProperties {
+  string id = 1;
+  EggType egg_type = 2;
+  repeated Reward rewards = 3;  // seems always for elite
+  // for standard rewards, check reward_tiers[1]
+  bool coop_allowed = 4;
+  int32 max_coop_size = 5;
+  double expiry_timestamp = 6;
+  double duration_seconds = 7;  // total time to complete
+  string name = 9;
+  string description = 10;
+  bool debug = 11;
+  int32 max_boosts = 12;
+  double max_soul_eggs = 13;
+  int32 min_client_version = 14;
+  double token_interval_minutes = 15;
+  message RewardTier {
+    repeated Reward rewards = 1;
+  }
+  repeated RewardTier reward_tiers = 16;
+}
+
+message Reward {
+  int32 _1 = 1;
+  double goal = 2;
+  RewardType type = 3;
+  string name = 4;
+  double count = 5;
+  double _6 = 6;  // unknown; maybe a difficulty indicator?
+}
+
+enum RewardType {
+  INVALID_REWARD = 0;  // proto3 requires first enum value to be 0.
+
+  // Never encountered 1.
+  GOLDEN_EGG = 2;
+  SOUL_EGG = 3;
+  PROPHECY_EGG = 4;
+  EPIC_RESEARCH = 5;
+  PIGGY_GOLDEN_EGG = 6;
+  PIGGY_MULTIPLY = 7;  // e.g. xmas-trash "Quantum Trash Bag"
+  // (type:7, name:"subtype", count:2)
+  PIGGY_LEVEL_UP = 8;
+  BOOST = 9;
+  BOOST_TOKEN = 10;
+  ARTIFACT = 11;
+  ARTIFACT_CASE = 12;
+  UNKNOWN_REWARD = 100;
+}
+
+message ArtifactsDB {
+  repeated ArtifactInventoryItem inventory_items = 1;
+  uint64 item_sequence = 2;
+  repeated InventorySlot inventory_slots = 3;
+
+  message ActiveArtifactSlot {
+    bool occupied = 1;
+    uint64 item_id = 2;
+  }
+  repeated ActiveArtifactSlot active_artifacts = 7;
+
+  message ActiveArtifactSet {
+    repeated ActiveArtifactSlot slots = 1;
+  }
+  repeated ActiveArtifactSet active_artifact_sets = 11;
+
+  repeated ArtifactSpec discovered_artifacts = 8;
+
+  message CraftableArtifact {
+    ArtifactSpec spec = 1;
+    bool seen = 2;
+    uint32 count = 3;
+  }
+  repeated CraftableArtifact craftable_artifacts = 9;
+
+  repeated CraftableArtifact crafting_counts = 10;
+  repeated MissionInfo mission_infos = 4;
+  repeated MissionInfo mission_archive = 5;
+}
+
+message ArtifactSpec {
+  enum Name {
+    LUNAR_TOTEM = 0;
+    NEODYMIUM_MEDALLION = 3;
+    BEAK_OF_MIDAS = 4;
+    LIGHT_OF_EGGENDIL = 5;
+    DEMETERS_NECKLACE = 6;
+    VIAL_MARTIAN_DUST = 7;
+    ORNATE_GUSSET = 8;
+    THE_CHALICE = 9;
+    BOOK_OF_BASAN = 10;
+    PHOENIX_FEATHER = 11;
+    TUNGSTEN_ANKH = 12;
+    AURELIAN_BROOCH = 21;
+    CARVED_RAINSTICK = 22;
+    PUZZLE_CUBE = 23;
+    QUANTUM_METRONOME = 24;
+    SHIP_IN_A_BOTTLE = 25;
+    TACHYON_DEFLECTOR = 26;
+    INTERSTELLAR_COMPASS = 27;
+    DILITHIUM_MONOCLE = 28;
+    TITANIUM_ACTUATOR = 29;
+    MERCURYS_LENS = 30;
+    TACHYON_STONE = 1;
+    DILITHIUM_STONE = 31;
+    SHELL_STONE = 32;
+    LUNAR_STONE = 33;
+    SOUL_STONE = 34;
+    PROPHECY_STONE = 39;
+    QUANTUM_STONE = 36;
+    TERRA_STONE = 37;
+    LIFE_STONE = 38;
+    CLARITY_STONE = 40;
+    EXTRATERRESTRIAL_ALUMINUM = 13;
+    ANCIENT_TUNGSTEN = 14;
+    SPACE_ROCKS = 15;
+    ALIEN_WOOD = 16;
+    GOLD_METEORITE = 17;
+    TAU_CETI_GEODE = 18;
+    CENTAURIAN_STEEL = 19;
+    ERIDANI_FEATHER = 20;
+    DRONE_PARTS = 35;
+    CELESTIAL_BRONZE = 41;
+    LALANDE_HIDE = 42;
+    SOLAR_TITANIUM = 43;
+    TACHYON_STONE_FRAGMENT = 2;
+    DILITHIUM_STONE_FRAGMENT = 44;
+    SHELL_STONE_FRAGMENT = 45;
+    LUNAR_STONE_FRAGMENT = 46;
+    SOUL_STONE_FRAGMENT = 47;
+    PROPHECY_STONE_FRAGMENT = 48;
+    QUANTUM_STONE_FRAGMENT = 49;
+    TERRA_STONE_FRAGMENT = 50;
+    LIFE_STONE_FRAGMENT = 51;
+    CLARITY_STONE_FRAGMENT = 52;
+    UNKNOWN = 10000;
+  }
+  Name name = 1;
+
+  enum Level {
+    INFERIOR = 0;
+    LESSER = 1;
+    NORMAL = 2;
+    GREATER = 3;
+    SUPERIOR = 4;
+  }
+  Level level = 2;
+
+  enum Rarity {
+    COMMON = 0;
+    RARE = 1;
+    EPIC = 2;
+    LEGENDARY = 3;
+  }
+  Rarity rarity = 3;
+
+  EggType egg = 4;
+
+  enum Type {
+    ARTIFACT = 0;
+    STONE = 1;
+    INGREDIENT = 2;
+    STONE_INGREDIENT = 3;
+  }
+}
+
+message ArtifactInventoryItem {
+  uint64 item_id = 1;
+  CompleteArtifact artifact = 2;
+  double quantity = 3;
+  string server_id = 4;
+}
+
+message CompleteArtifact {
+  ArtifactSpec spec = 1;
+  repeated ArtifactSpec stones = 2;
+}
+
+message InventorySlot {
+  bool occupied = 1;
+  uint32 item_id = 2;
+}
+
+message MissionInfo {
+  enum Spaceship {
+    CHICKEN_ONE = 0;
+    CHICKEN_NINE = 1;
+    CHICKEN_HEAVY = 2;
+    BCR = 3;
+    MILLENIUM_CHICKEN = 4;
+    CORELLIHEN_CORVETTE = 5;
+    GALEGGTICA = 6;
+    CHICKFIANT = 7;
+    VOYEGGER = 8;
+    HENERPRISE = 9;
+  }
+  Spaceship ship = 1;
+
+  enum Status {
+    FUELING = 0;
+    PREPARE_TO_LAUNCH = 5;
+    EXPLORING = 10;
+    RETURNED = 15;
+    ANALYZING = 16;
+    COMPLETE = 20;
+    ARCHIVED = 25;
+  }
+  Status status = 2;
+
+  enum DurationType {
+    SHORT = 0;
+    LONG = 1;
+    EPIC = 2;
+    TUTORIAL = 3;
+  }
+  DurationType duration_type = 3;
+
+  message Fuel {
+    EggType egg = 1;
+    double amount = 2;
+  }
+  repeated Fuel fuel = 4;
+
+  double duration_seconds = 5;
+  double seconds_remaining = 6;
+  string identifier = 7;
+  double start_time_derived = 8;
+  uint32 capacity = 9;
+  string mission_log = 10;
+}
+
+// https://www.auxbrain.com/ei/coop_status
+message CoopStatusRequestPayload {
+  string contract_id = 1;
+  string code = 2;
+  string player_id = 3;
+}
+
+message CoopStatus {
+  string contract_id = 1;
+  double eggs_laid = 2;
+  string code = 3;
+  message Member {
+    string id = 1;
+    string name = 2;
+    double eggs_laid = 3;
+    bool active = 4;  // "snoozers" who haven't reported in in 24 hours
+    // have this field set to false
+    int32 _5 = 5;     // unknown; example: 1 or 2
+    double eggs_per_second = 6;
+    int32 _7 = 7;                   // unknown; example: 7
+    double earning_bonus_oom = 11;  // EB is 10^(earning_bonus_oom + 2)%
+    int32 tokens = 12;
+  }
+  repeated Member members = 4;
+  double seconds_until_production_deadline = 5;
+  int32 _6 = 6;  // unknown, maybe bool; example: 0
+  double seconds_until_collection_deadline = 7;
+  int32 _8 = 8;  // unknown, maybe bool; example: 0
+  string creator_id = 9;
+  bool public = 10;
+  message TokenGift {
+    string gifter_id = 1;
+    int32 tokens = 2;
+    string gifter_name = 3;
+  }
+  // token_gifts is only available if player_id is specified in
+  // CoopStatusRequestPayload, and only gifts for the requested player are
+  // returned.
+  //
+  // WARNING: gifts are only returned once, meaning that if you intercept a
+  // response carrying gifts without feeding it to the game, the gifts would
+  // simply vanish from game state unless you MITM /coop_status and edit the
+  // response (which is also an obvious cheating vector to bypass the chore of
+  // token griding).
+  repeated TokenGift token_gifts = 11;
+
+  // egg_contractor_league is NOT part of Egg, Inc.'s protobuf. It is a field
+  // added to counter the braindead design of not including the league in
+  // ContractCoopStatusResponse and avoid loads of interwined code.
+  //
+  // Since the default value of 0 cannot be used as an actual value, the value
+  // stored here is Contract.league + 1, i.e. 1 for elite, 2 for standard, 0 for
+  // unknown.
+  int32 egg_contractor_league = 1000;
+}
+
+// https://www.auxbrain.com/ei/get_periodicals
+message GetPeriodicalsRequestPayload {
+  string user_id = 1;
+  bool piggy_full = 2;
+  bool piggy_found_full = 3;
+  double seconds_full_realtime = 4;
+  double seconds_full_gametime = 5;
+  uint32 lost_increments = 7;
+  double soul_eggs = 8;
+  uint32 current_client_version = 10;
+  bool debug = 11;
+  BasicRequestInfo rinfo = 12;
+}
+
+message Periodicals {
+  message Sales {
+    repeated Sale sales = 1;
+  }
+  Sales sales = 1;
+  message Events {
+    repeated Event events = 1;
+  }
+  Events events = 2;
+  message Contracts {
+    repeated ContractProperties contracts = 1;
+    double response_timestamp = 2;  // epoch seconds; as to why the hell the
+    // response timestamp is nested in such an
+    // awkward position, I have no damn clue.
+  }
+  Contracts contracts = 3;
+}
+
+message Sale {
+  string sale_type = 1;  // Example: "piggy_break"
+  double seconds_remaining = 2;
+  string sale_amount = 3;  // Example: "40%"; no equivalent numeric field
+  string id = 4;           // Example: "gametime-piggy-sale"
+  // I'm not actually sure this is an ID
+}
+
+message Event {
+  string id = 1;
+  double seconds_remaining = 2;
+  string event_type = 3;
+  double multiplier = 4;  // For discount events, this is the final price
+  // multiplier, e.g. 0.3 for 70% off research.
+  string message = 5;
+}
+
+// https://www.auxbrain.com/ei_afx/config
+message ArtifactsConfigurationRequestPayload {
+  BasicRequestInfo rinfo = 2;
+  uint32 client_version = 1;
+}
+
+message ArtifactsConfigurationResponse {
+  repeated MissionParameters mission_parameters = 1;
+  message MissionParameters {
+    MissionInfo.Spaceship ship = 1;
+
+    repeated Duration durations = 3;
+    message Duration {
+      MissionInfo.DurationType duration_type = 1;
+      double seconds = 2;
+      float quality = 3;
+      float min_quality = 4;
+      float max_quality = 5;
+      uint32 capacity = 6;
+      uint32 level_capacity_bump = 7;
+      float level_quality_bump = 8;
+    }
+
+    repeated uint32 level_mission_requirements = 4;
+    uint32 capacity_DEPRECATED = 2;
+  }
+
+  repeated ArtifactParameters artifact_parameters = 2;
+  message ArtifactParameters {
+    ArtifactSpec spec = 1;
+    double base_quality = 2;
+    double odds_multiplier = 4;
+    double value = 3;
+    double crafting_price = 5;
+    double crafting_price_low = 6;
+    uint32 crafting_price_domain = 7;
+    double crafting_price_curve = 8;
+  }
+}
+
+// https://www.auxbrain.com/ei/get_config
+message ConfigRequest {
+  BasicRequestInfo rinfo = 1;
+  double soul_eggs = 2;
+  bool artifacts_enabled = 3;
+  bool fuel_tank_unlocked = 4;
+}
+
+message ConfigResponse {
+  LiveConfig live_config = 1;
+  MailDB mail_bag = 2;
+  DLCCatalog dlc_catalog = 3;
+}
+
+message LiveConfig {
+  string config_id = 1;
+
+  BoostsConfig boosts_config = 2;
+  message BoostsConfig {
+    repeated ItemConfig item_configs = 1;
+    message ItemConfig {
+      string boost_id = 1;
+      uint32 price = 2;
+      uint32 token_price = 3;
+      double se_required = 4;
+    }
+
+    double cash_boost_cooloff_time = 2;
+  }
+
+  GiftConfig gift_config = 3;
+  message GiftConfig {
+    repeated GiftValueConfig gift_configs = 9;
+    message GiftValueConfig {
+      string gift_id = 1;
+      double amount = 4;
+      double rand_min = 2;
+      double rand_max = 3;
+      double video_min = 5;
+      double video_max = 6;
+    }
+
+    double gift_mu_min_spent = 10;
+    double gift_mu_max_spent = 11;
+    double gift_mu_overall_mult = 12;
+    double package_interval = 1;
+    double video_offer_interval = 2;
+    double video_offer_interval_contract = 3;
+    double video_offer_interval_piggy_full = 4;
+    double video_offer_interval_piggy_extra_full = 5;
+    bool video_reset_on_idle = 14;
+    double package_interval_contract = 6;
+    double package_interval_piggy_full = 7;
+    double package_interval_piggy_extra_full = 8;
+    bool package_reset_on_idle = 13;
+  }
+
+  MiscConfig misc_config = 4;
+  message MiscConfig {
+    bool ask_to_track = 1;
+    double ask_to_track_min_soul_eggs = 2;
+    string ask_to_track_message = 3;
+  }
+}
+
+message InGameMail {
+  string id = 1;
+  string title = 2;
+  string date = 8;
+  string message = 3;
+  string action = 4;
+  string url = 5;
+  uint32 platform = 7;
+  repeated string builds = 9;
+  uint32 min_client_version = 10;
+  double gold_tip = 6;
+}
+
+message MailDB {
+  repeated InGameMail mail = 1;
+}
+
+message DLCItem {
+  string name = 1;
+  string directory = 2;
+  string ext = 3;
+  string url = 4;
+  string checksum = 5;
+}
+
+message DLCCatalog {
+  repeated DLCItem items = 1;
+}
