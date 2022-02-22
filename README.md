@@ -10,10 +10,18 @@ A place to fool around with the Egg, Inc. API
 `go mod vendor`
 
 ### Run code to get EB and SE count
-`go run -ldflags "-X 'main.EIUID="<your EI user ID for the game>"'" *.go`
+`go run -ldflags "-X 'main.EIUID="<your EI user ID for the game>"' -X 'main.DiscordUsername="<your discord username>"'" *.go`
 
 ### Expected output format
-`EB: <human readable number with unit>; SE: <human readable number with unit>`
+```
+Info for <discord name>:
+--> EB: <human readable number with unit>
+--> SE: <human readable number with unit>
+```
 
 #### Example
-`EB: 124.779s; SE: 4.000Q`
+```
+Info for krohmag:
+--> EB: 124.779s
+--> SE: 4.000Q
+```
