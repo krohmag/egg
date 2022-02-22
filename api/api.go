@@ -1,13 +1,16 @@
 package api
 
 import (
+	"context"
+	"egg/datastore"
 	"encoding/base64"
 	"fmt"
-	"github.com/golang/protobuf/proto"
 	"io"
 	"math"
 	"net/http"
 	"net/url"
+
+	"github.com/golang/protobuf/proto"
 )
 
 var (
@@ -16,14 +19,8 @@ var (
 	apiFirstContact = "https://www.auxbrain.com/ei/first_contact"
 )
 
-type EBData struct {
-	SoulFood      int32   `json:"soulFood"`
-	ProphecyBonus int32   `json:"prophecyBonus"`
-	SoulEggs      float64 `json:"soulEggs"`
-	ProphecyEggs  int32   `json:"prophecyEggs"`
-}
-
-func GetEBandSE(eiUID string) (string, string, error) {
+// GetBackupFromAPI queries the Egg, Inc. API for a user's backup info
+func GetBackupFromAPI(eiUID string) (*FirstContact_Payload, error) {
 	responseBody := new(FirstContact)
 	authenticatedMsg := new(AuthenticatedMessage)
 	payload := FirstContactRequestPayload{
@@ -34,17 +31,17 @@ func GetEBandSE(eiUID string) (string, string, error) {
 
 	reqBin, err := proto.Marshal(proto.Message(&payload))
 	if err != nil {
-		return "", "", err
+		return &FirstContact_Payload{}, err
 	}
 
 	reqDataEncoded := base64.StdEncoding.EncodeToString(reqBin)
 
 	resp, err := http.PostForm(apiFirstContact, url.Values{"data": {reqDataEncoded}})
 	defer func() {
-		resp.Body.Close()
+		_ = resp.Body.Close()
 	}()
 	if err != nil {
-		return "", "", err
+		return &FirstContact_Payload{}, err
 	}
 
 	body, err := io.ReadAll(resp.Body)
@@ -54,34 +51,64 @@ func GetEBandSE(eiUID string) (string, string, error) {
 	decoded, err := enc.Decode(buf, body)
 
 	if err = proto.Unmarshal(buf[:decoded], authenticatedMsg); err != nil {
-		return "", "", err
+		return &FirstContact_Payload{}, err
 	}
 
 	if err = proto.Unmarshal(authenticatedMsg.Message, responseBody); err != nil {
-		return "", "", err
+		return &FirstContact_Payload{}, err
 	}
 
-	progress := responseBody.Data.GetProgress()
-
-	ebData := EBData{
-		SoulEggs:     progress.GetSoulEggs(),
-		ProphecyEggs: progress.GetProphecyEggs(),
-	}
-
-	er := progress.GetEpicResearches()
-	for _, research := range er {
-		if research.Id == "soul_eggs" {
-			ebData.SoulFood = research.Level
-		}
-		if research.Id == "prophecy_bonus" {
-			ebData.ProphecyBonus = research.Level
-		}
-	}
-
-	return calculateEB(ebData), forPeople(ebData.SoulEggs), nil
+	return responseBody.Data, nil
 }
 
-func calculateEB(data EBData) string {
+// AddUserToDatabase builds a datastore.User object and adds it to a datastore
+func AddUserToDatabase(ctx context.Context, store datastore.Database, backup *FirstContact_Payload, discordName string) (datastore.User, error) {
+	var soulFood int32
+	var prophecyBonus int32
+	for _, research := range backup.GetProgress().GetEpicResearches() {
+		if research.Id == "soul_eggs" {
+			soulFood = research.Level
+		}
+		if research.Id == "prophecy_bonus" {
+			prophecyBonus = research.Level
+		}
+	}
+	user := datastore.User{
+		EggIncID:        backup.EiUserId,
+		DiscordName:     discordName,
+		GameAccountName: backup.UserName,
+		SoulFood:        soulFood,
+		ProphecyBonus:   prophecyBonus,
+		SoulEggs:        backup.GetProgress().GetSoulEggs(),
+		ProphecyEggs:    backup.GetProgress().GetProphecyEggs(),
+	}
+
+	tx, err := store.Transaction(ctx)
+	if err != nil {
+		return datastore.User{}, err
+	}
+	defer func() {
+		if err == nil {
+			_ = tx.Commit()
+		} else {
+			_ = tx.Rollback()
+		}
+	}()
+
+	record, err := tx.CreateOrUpdateUser(user)
+	if err != nil {
+		return datastore.User{}, err
+	}
+
+	return record, nil
+}
+
+// GetEBAndSE returns a calculated Earnings bonus as well as a count of Soul Eggs, both in a human readable format
+func GetEBAndSE(user datastore.User) (string, string, error) {
+	return calculateEB(user), forPeople(user.SoulEggs), nil
+}
+
+func calculateEB(data datastore.User) string {
 	sePercent := (0.1 + (float64(data.SoulFood) * .01)) * 100
 	pePercent := math.Pow(float64(1)+0.05+(float64(data.ProphecyBonus)*0.01), float64(data.ProphecyEggs)) * 100
 	bonus := (sePercent * pePercent) / 100
