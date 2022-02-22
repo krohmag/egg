@@ -19,6 +19,7 @@ var (
 	apiFirstContact = "https://www.auxbrain.com/ei/first_contact"
 )
 
+// GetBackupFromAPI queries the Egg, Inc. API for a user's backup info
 func GetBackupFromAPI(eiUID string) (*FirstContact_Payload, error) {
 	responseBody := new(FirstContact)
 	authenticatedMsg := new(AuthenticatedMessage)
@@ -60,6 +61,7 @@ func GetBackupFromAPI(eiUID string) (*FirstContact_Payload, error) {
 	return responseBody.Data, nil
 }
 
+// AddUserToDatabase builds a datastore.User object and adds it to a datastore
 func AddUserToDatabase(ctx context.Context, store datastore.Database, backup *FirstContact_Payload, discordName string) (datastore.User, error) {
 	var soulFood int32
 	var prophecyBonus int32
@@ -101,65 +103,8 @@ func AddUserToDatabase(ctx context.Context, store datastore.Database, backup *Fi
 	return record, nil
 }
 
-func GetEBandSE(user datastore.User) (string, string, error) {
-	// responseBody := new(FirstContact)
-	// authenticatedMsg := new(AuthenticatedMessage)
-	// payload := FirstContactRequestPayload{
-	// 	EiUserId:      eiUID,
-	// 	DeviceId:      deviceId,
-	// 	ClientVersion: clientVersion,
-	// }
-	//
-	// reqBin, err := proto.Marshal(proto.Message(&payload))
-	// if err != nil {
-	// 	return "", "", err
-	// }
-	//
-	// reqDataEncoded := base64.StdEncoding.EncodeToString(reqBin)
-	//
-	// resp, err := http.PostForm(apiFirstContact, url.Values{"data": {reqDataEncoded}})
-	// defer func() {
-	// 	resp.Body.Close()
-	// }()
-	// if err != nil {
-	// 	return "", "", err
-	// }
-	//
-	// body, err := io.ReadAll(resp.Body)
-	//
-	// enc := base64.StdEncoding
-	// buf := make([]byte, enc.DecodedLen(len(body)))
-	// decoded, err := enc.Decode(buf, body)
-	//
-	// if err = proto.Unmarshal(buf[:decoded], authenticatedMsg); err != nil {
-	// 	return "", "", err
-	// }
-	//
-	// if err = proto.Unmarshal(authenticatedMsg.Message, responseBody); err != nil {
-	// 	return "", "", err
-	// }
-	//
-	// progress := responseBody.Data.GetProgress()
-	//
-	// ebData := datastore.User{
-	// 	DiscordName:     discordName,
-	// 	GameAccountName: responseBody.Data.GetUserName(),
-	// 	SoulEggs:        progress.GetSoulEggs(),
-	// 	ProphecyEggs:    progress.GetProphecyEggs(),
-	// }
-	//
-	// er := progress.GetEpicResearches()
-	// for _, research := range er {
-	// 	if research.Id == "soul_eggs" {
-	// 		ebData.SoulFood = research.Level
-	// 	}
-	// 	if research.Id == "prophecy_bonus" {
-	// 		ebData.ProphecyBonus = research.Level
-	// 	}
-	// }
-	//
-	// fmt.Println(ebData)
-
+// GetEBAndSE returns a calculated Earnings bonus as well as a count of Soul Eggs, both in a human readable format
+func GetEBAndSE(user datastore.User) (string, string, error) {
 	return calculateEB(user), forPeople(user.SoulEggs), nil
 }
 

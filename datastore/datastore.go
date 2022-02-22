@@ -63,6 +63,7 @@ type Database struct {
 	DB *gorm.DB
 }
 
+// Ping ensures database connectivity
 func (d Database) Ping() bool {
 	var result int
 	d.DB.Raw("SELECT 1+1").Scan(&result)
@@ -74,6 +75,7 @@ func (d Database) Ping() bool {
 	return true
 }
 
+// Transaction returns an implementation of the Transaction interface
 func (d Database) Transaction(ctx context.Context) (Transaction, error) {
 	tx := d.DB.WithContext(ctx)
 	if tx.Error != nil {
@@ -93,14 +95,17 @@ type Txn struct {
 	Client *gorm.DB
 }
 
+// Commit commits a transaction
 func (t Txn) Commit() error {
 	return t.Client.Commit().Error
 }
 
+// Rollback rolls back a transaction
 func (t Txn) Rollback() error {
 	return t.Client.Rollback().Error
 }
 
+// CreateOrUpdateUser adds or updates a user to the datastore
 func (t Txn) CreateOrUpdateUser(user User) (User, error) {
 	var userTemplate User
 	switch err := t.Client.Where("egg_inc_id = ?", user.EggIncID).First(&userTemplate).Error; {
@@ -123,6 +128,7 @@ func (t Txn) CreateOrUpdateUser(user User) (User, error) {
 	return userTemplate, err
 }
 
+// GetUsers returns all user info
 func (t Txn) GetUsers() (Users, error) {
 	var users Users
 	if err := t.Client.Find(&users).Error; err != nil {
@@ -132,6 +138,7 @@ func (t Txn) GetUsers() (Users, error) {
 	return users, nil
 }
 
+// GetUsersByDiscordName returns all user for a given discord username
 func (t Txn) GetUsersByDiscordName(discordName string) (Users, error) {
 	var users Users
 	if err := t.Client.Where("discord_name = ?", discordName).Find(&users).Error; err != nil {
@@ -145,6 +152,7 @@ func (t Txn) GetUsersByDiscordName(discordName string) (Users, error) {
 	return users, nil
 }
 
+// GetUserByEggIncUserID returns a user for a given Egg, Inc. user ID
 func (t Txn) GetUserByEggIncUserID(eggIncUserID string) (User, error) {
 	var user User
 	if err := t.Client.Where("egg_inc_id = ?", eggIncUserID).First(&user).Error; err != nil {
@@ -154,6 +162,7 @@ func (t Txn) GetUserByEggIncUserID(eggIncUserID string) (User, error) {
 	return user, nil
 }
 
+// DeleteUser removes a user from the datastore
 func (t Txn) DeleteUser(user User) error {
 	return t.Client.Where("egg_inc_id = ?", user.EggIncID).Delete(&user).Error
 }

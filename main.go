@@ -33,7 +33,7 @@ func main() {
 		panic(err)
 	}
 
-	eb, se, err := api.GetEBandSE(record)
+	eb, se, err := api.GetEBAndSE(record)
 	if err != nil {
 		panic(err)
 	}
