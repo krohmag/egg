@@ -4,24 +4,26 @@ A place to fool around with the Egg, Inc. API
 ### Requirements
 1. go version 1.16 or later
 2. Your EI user ID from the game
+3. A file at the root of the repo named 'config.json'
 
 ### Setup
 #### Install dependencies
 `go mod vendor`
 
-### Run code to get EB and SE count
-`go run -ldflags "-X 'main.EIUID="<your EI user ID for the game>"' -X 'main.DiscordUsername="<your discord username>"'" *.go`
-
-### Expected output format
+#### Populate `config.json`
 ```
-Info for <discord name>:
---> EB: <human readable number with unit>
---> SE: <human readable number with unit>
+{
+  "botToken": "<discord bot token>",
+  "guildID": "<discord server guild id>"
+}
 ```
 
-#### Example
-```
-Info for krohmag:
---> EB: 124.779s
---> SE: 4.000Q
-```
+### Run code start a discord bot
+`go run *.go`
+
+### Current commands
+`/register` - Requires a string as input. The expected value is a user's Egg, Inc. user ID
+`/removeid` - Requires a string as input. The expected value is a user's Egg, Inc. user ID
+
+### Run tests
+From the root of the repo, run `go test ./...`

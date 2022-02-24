@@ -11,6 +11,7 @@ import (
 	"net/url"
 
 	"github.com/golang/protobuf/proto"
+	"github.com/pkg/errors"
 )
 
 var (
@@ -95,12 +96,47 @@ func AddUserToDatabase(ctx context.Context, store datastore.Database, backup *Fi
 		}
 	}()
 
+	if err = store.DB.Unscoped().Model(&datastore.User{}).Where("egg_inc_id = ?", backup.EiUserId).Update("deleted_at", nil).Error; err != nil {
+		return datastore.User{}, err
+	}
+
 	record, err := tx.CreateOrUpdateUser(user)
 	if err != nil {
 		return datastore.User{}, err
 	}
 
 	return record, nil
+}
+
+// RemoveUserFromDatabase removes a user from the database provided the provided ID and discord username match up with the database record
+func RemoveUserFromDatabase(ctx context.Context, store datastore.Database, eggID, discordName string) error {
+	tx, err := store.Transaction(ctx)
+	if err != nil {
+		return err
+	}
+	defer func() {
+		if err == nil {
+			_ = tx.Commit()
+		} else {
+			_ = tx.Rollback()
+		}
+	}()
+
+	record, err := tx.GetUserByEggIncUserID(eggID)
+	if err != nil {
+		return err
+	}
+
+	if record.DiscordName != discordName {
+		return errors.New("Your Discord user is not associated with the ID you provided")
+	}
+
+	err = tx.DeleteUser(datastore.User{
+		EggIncID:    eggID,
+		DiscordName: discordName,
+	})
+
+	return err
 }
 
 // GetEBAndSE returns a calculated Earnings bonus as well as a count of Soul Eggs, both in a human readable format
