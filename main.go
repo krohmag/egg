@@ -2,13 +2,14 @@ package main
 
 import (
 	"context"
-	"egg/api"
+	"egg/bot"
+	"egg/config"
 	"egg/datastore"
-	"fmt"
-)
+	"os"
+	"os/signal"
 
-var EIUID string
-var DiscordUsername string
+	"github.com/sirupsen/logrus"
+)
 
 func main() {
 	ctx := context.Background()
@@ -23,20 +24,25 @@ func main() {
 
 	dStore := datastore.Database{DB: db}
 
-	backup, err := api.GetBackupFromAPI(EIUID)
-	if err != nil {
+	if err = config.LoadConfigFromFile("./config.json"); err != nil {
 		panic(err)
 	}
 
-	record, err := api.AddUserToDatabase(ctx, dStore, backup, DiscordUsername)
-	if err != nil {
-		panic(err)
+	commands, session := bot.Start(ctx, dStore)
+	defer func() {
+		_ = session.Close()
+	}()
+
+	stop := make(chan os.Signal, 1)
+	signal.Notify(stop, os.Interrupt)
+	<-stop
+
+	logrus.Info("--> removing bot commands from server ...")
+	for _, command := range commands {
+		if err = session.ApplicationCommandDelete(session.State.User.ID, config.Config.GuildID, command.ID); err != nil {
+			panic(err)
+		}
 	}
 
-	eb, se, err := api.GetEBAndSE(record)
-	if err != nil {
-		panic(err)
-	}
-
-	fmt.Printf("Info for %s:\n--> EB: %s\n--> SE: %s\n", DiscordUsername, eb, se)
+	logrus.Info("--> gracefully shutting down ...")
 }
