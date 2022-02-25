@@ -10,6 +10,8 @@ import (
 	"net/http"
 	"net/url"
 
+	"gorm.io/gorm"
+
 	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
@@ -96,10 +98,6 @@ func AddUserToDatabase(ctx context.Context, store datastore.Database, backup *Fi
 		}
 	}()
 
-	if err = store.DB.Unscoped().Model(&datastore.User{}).Where("egg_inc_id = ?", backup.EiUserId).Update("deleted_at", nil).Error; err != nil {
-		return datastore.User{}, err
-	}
-
 	record, err := tx.CreateOrUpdateUser(user)
 	if err != nil {
 		return datastore.User{}, err
@@ -122,12 +120,20 @@ func RemoveUserFromDatabase(ctx context.Context, store datastore.Database, eggID
 		}
 	}()
 
-	record, err := tx.GetUserByEggIncUserID(eggID)
+	var check datastore.User
+	switch record, checkErr := tx.GetUserByEggIncUserID(eggID); {
+	case checkErr == nil:
+		check = record
+	case errors.Is(checkErr, gorm.ErrRecordNotFound):
+		return errors.New("I don't have a record of you")
+	default:
+		return checkErr
+	}
 	if err != nil {
 		return err
 	}
 
-	if record.DiscordName != discordName {
+	if check.DiscordName != discordName {
 		return errors.New("Your Discord user is not associated with the ID you provided")
 	}
 

@@ -5,6 +5,8 @@ import (
 	"fmt"
 	"time"
 
+	"gorm.io/gorm/clause"
+
 	"github.com/pkg/errors"
 	"gorm.io/gorm/logger"
 
@@ -116,7 +118,9 @@ func (t Txn) CreateOrUpdateUser(user User) (User, error) {
 		}
 	case errors.Is(err, gorm.ErrRecordNotFound):
 		// create because the record does not exist
-		if err = t.Client.Create(&user).Error; err != nil {
+		if err = t.Client.Clauses(clause.OnConflict{
+			UpdateAll: true,
+		}).Create(&user).Error; err != nil {
 			return user, err
 		}
 	default:
