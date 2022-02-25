@@ -190,7 +190,8 @@ func BuildSELeaderboard(ctx context.Context, store datastore.Database) (*discord
 		Type:      discordgo.EmbedTypeRich,
 		Title:     "Soul Egg Leaderboard",
 		Timestamp: time.Now().Format(time.RFC3339),
-		Color:     0x00ff00,
+		Color:     0x8700C3, // button purple
+		// Color:     0x00ff00, // green
 		Footer: &discordgo.MessageEmbedFooter{
 			Text: fmt.Sprint("Updates every X minutes | Last updated"),
 		},
