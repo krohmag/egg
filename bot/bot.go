@@ -39,6 +39,10 @@ var (
 				},
 			},
 		},
+		{
+			Name:        "board",
+			Description: "Temporary command to generate the soul egg leaderboard",
+		},
 	}
 
 	commandHandlers = map[string]func(s *discordgo.Session, i *discordgo.InteractionCreate, store datastore.Database, ctx context.Context){
@@ -83,6 +87,37 @@ var (
 				Data: &discordgo.InteractionResponseData{
 					Flags:   1 << 6,
 					Content: fmt.Sprint(":frowning2: Sad to see you go, but your account has been successfully removed from the bot :frowning2:"),
+				},
+			}); err != nil {
+				sendErrToDiscord(s, i, err)
+			}
+		},
+		"board": func(s *discordgo.Session, i *discordgo.InteractionCreate, store datastore.Database, ctx context.Context) {
+			embed, err := api.BuildSELeaderboard(ctx, store)
+			if err != nil {
+				sendErrToDiscord(s, i, err)
+			}
+
+			messages, err := s.ChannelMessages(i.ChannelID, 100, "", "", "")
+			if err != nil {
+				sendErrToDiscord(s, i, err)
+			}
+
+			mIDs := make([]string, 0)
+			for _, message := range messages {
+				if !message.Pinned {
+					mIDs = append(mIDs, message.ID)
+				}
+			}
+
+			if err = s.ChannelMessagesBulkDelete(i.ChannelID, mIDs); err != nil {
+				sendErrToDiscord(s, i, err)
+			}
+
+			if err := s.InteractionRespond(i.Interaction, &discordgo.InteractionResponse{
+				Type: discordgo.InteractionResponseChannelMessageWithSource,
+				Data: &discordgo.InteractionResponseData{
+					Embeds: []*discordgo.MessageEmbed{embed},
 				},
 			}); err != nil {
 				sendErrToDiscord(s, i, err)

@@ -9,6 +9,10 @@ import (
 	"math"
 	"net/http"
 	"net/url"
+	"sort"
+	"time"
+
+	"github.com/bwmarrin/discordgo"
 
 	"gorm.io/gorm"
 
@@ -145,17 +149,69 @@ func RemoveUserFromDatabase(ctx context.Context, store datastore.Database, eggID
 	return err
 }
 
-// GetEBAndSE returns a calculated Earnings bonus as well as a count of Soul Eggs, both in a human readable format
-func GetEBAndSE(user datastore.User) (string, string, error) {
-	return calculateEB(user), forPeople(user.SoulEggs), nil
+func BuildSELeaderboard(ctx context.Context, store datastore.Database) (*discordgo.MessageEmbed, error) {
+	tx, err := store.Transaction(ctx)
+	if err != nil {
+		return &discordgo.MessageEmbed{}, err
+	}
+	defer func() {
+		if err == nil {
+			_ = tx.Commit()
+		} else {
+			_ = tx.Rollback()
+		}
+	}()
+
+	records, err := tx.GetUsers()
+	if err != nil {
+		return &discordgo.MessageEmbed{}, err
+	}
+
+	sort.Slice(records, func(i, j int) bool {
+		return records[i].SoulEggs > records[j].SoulEggs
+	})
+
+	embedFields := make([]*discordgo.MessageEmbedField, 0)
+	for i, record := range records {
+		_, humanEB, se, mathErr := GetEBAndSE(record)
+		if mathErr != nil {
+			return &discordgo.MessageEmbed{}, mathErr
+		}
+
+		field := &discordgo.MessageEmbedField{
+			Name:   fmt.Sprintf("%d. %s %s", i+1, record.DiscordName, humanEB),
+			Value:  fmt.Sprintf("%s soul eggs", se),
+			Inline: false,
+		}
+		embedFields = append(embedFields, field)
+	}
+
+	embed := &discordgo.MessageEmbed{
+		Type:      discordgo.EmbedTypeRich,
+		Title:     "Soul Egg Leaderboard",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Color:     0x00ff00,
+		Footer: &discordgo.MessageEmbedFooter{
+			Text: fmt.Sprint("Updates every X minutes | Last updated"),
+		},
+		Fields: embedFields,
+	}
+
+	return embed, nil
 }
 
-func calculateEB(data datastore.User) string {
+// GetEBAndSE returns a calculated Earnings bonus as well as a count of Soul Eggs, both in a human readable format
+func GetEBAndSE(user datastore.User) (float64, string, string, error) {
+	rawEB, humanEB := calculateEB(user)
+	return rawEB, humanEB, forPeople(user.SoulEggs), nil
+}
+
+func calculateEB(data datastore.User) (float64, string) {
 	sePercent := (0.1 + (float64(data.SoulFood) * .01)) * 100
 	pePercent := math.Pow(float64(1)+0.05+(float64(data.ProphecyBonus)*0.01), float64(data.ProphecyEggs)) * 100
 	bonus := (sePercent * pePercent) / 100
 
-	return forPeople(bonus * data.SoulEggs)
+	return bonus * data.SoulEggs, forPeople(bonus * data.SoulEggs)
 }
 
 func forPeople(bigAssNumber float64) string {
